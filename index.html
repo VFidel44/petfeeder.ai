@@ -85,7 +85,7 @@
             <p class="text-xs text-slate-400">Inicia la cámara para identificar a tus mascotas en tiempo real.</p>
           </div>
 
-          <!-- Bounding Box Simplicado: Solo Nombre y Alimento Ingerido -->
+          <!-- Bounding Box: Solo aparece si la IA detecta a la mascota -->
           <div id="aiBoundingBox" class="hidden absolute border-2 border-emerald-400 bg-emerald-500/10 rounded-xl transition-all duration-300 flex flex-col justify-start p-3 shadow-xl inset-6 backdrop-blur-[2px]">
             <div class="bg-slate-900/90 text-white p-2.5 rounded-lg border border-emerald-500/50 shadow-md">
               <h4 id="detectedPetName" class="font-extrabold text-sm text-emerald-400">Mascota</h4>
@@ -101,7 +101,7 @@
         </div>
       </div>
 
-      <!-- Card para Registrar Alimentación desde Cámara -->
+      <!-- Card para Registrar Alimentación (Oculta hasta que haya detección) -->
       <div id="scanResultsCard" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
           <i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i> Registrar Alimentación Detectada
@@ -189,7 +189,7 @@
 
   </main>
 
-  <!-- MODAL FLOTANTE PARA ACTUALIZAR ALIMENTO MANUALMENTE EN CADA PERFIL -->
+  <!-- MODAL FLOTANTE PARA ACTUALIZAR ALIMENTO MANUALMENTE -->
   <div id="manualFeedModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
@@ -303,11 +303,10 @@
         saveToLocalStorage();
       }
 
-      // HISTORIAL COMPLETAMENTE LIMPIO DE INICIO (Sin datos por defecto)
       if (savedHistory !== null) {
         historyLogs = JSON.parse(savedHistory);
       } else {
-        historyLogs = []; // Vacío por defecto
+        historyLogs = [];
         saveToLocalStorage();
       }
     }
@@ -420,7 +419,6 @@
       }
     }
 
-    // MANEJO DEL MODAL DE ACTUALIZACIÓN MANUAL EN EL PERFIL
     function openManualFeedModal(petId) {
       const pet = pets.find(p => p.id === petId);
       if (!pet) return;
@@ -447,7 +445,6 @@
       const now = new Date();
       const timeStr = `Hoy, ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-      // Registra en el historial el cambio manual
       historyLogs.push({
         id: Date.now(),
         petName: selectedPetForManualFeed.name,
@@ -579,6 +576,7 @@
       const status = document.getElementById('cameraStatus');
       const btn = document.getElementById('btnToggleCamera');
       const resultsCard = document.getElementById('scanResultsCard');
+      const bbox = document.getElementById('aiBoundingBox');
 
       if (mediaStream) {
         stopCamera();
@@ -593,7 +591,10 @@
         status.innerText = "Escaneando...";
         status.classList.add("text-emerald-400");
         btn.innerText = "Apagar Cámara";
-        resultsCard.classList.remove('hidden');
+        
+        // Mantener ocultos el cuadro y la tarjeta de registro al encender (hasta que la IA detecte algo)
+        bbox.classList.add('hidden');
+        resultsCard.classList.add('hidden');
 
         classificationInterval = setInterval(() => {
           classifyFrameFromCamera();
@@ -628,6 +629,7 @@
 
       const video = document.getElementById('videoFeed');
       const bbox = document.getElementById('aiBoundingBox');
+      const resultsCard = document.getElementById('scanResultsCard');
 
       try {
         const activation = aiModel.infer(video, 'conv_preds');
@@ -647,14 +649,17 @@
           }
         }
 
-        // Muestra únicamente el Nombre y los Gramos consumidos hoy
+        // Si la IA reconoce a la mascota (similitud > 70%), muestra la UI de identificación y registro
         if (bestMatch && maxSimilarity > 0.70) {
           bbox.classList.remove('hidden');
+          resultsCard.classList.remove('hidden');
           document.getElementById('detectedPetName').innerText = bestMatch.name;
           document.getElementById('detectedPetGrams').innerText = `${bestMatch.currentGrams}g`;
           document.getElementById('selectPetToFeed').value = bestMatch.id;
         } else {
+          // Si no hay mascota en la cámara, MANTIENE TODO OCULTO (Interfaz limpia)
           bbox.classList.add('hidden');
+          resultsCard.classList.add('hidden');
         }
 
       } catch (err) {
