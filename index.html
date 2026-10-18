@@ -156,10 +156,15 @@
             </div>
           </div>
 
-          <!-- Selector de Imagen Local desde Dispositivo -->
+          <!-- Selector de Imagen (Abre menú de Galería / Archivos / Cámara en Android) -->
           <div>
-            <label class="text-xs text-slate-400 block mb-1">Foto del Animal (Galería o Cámara)</label>
-            <input type="file" id="petImageInput" accept="image/*" class="w-full bg-slate-900 border border-slate-700 text-xs text-slate-400 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white">
+            <label class="text-xs text-slate-400 block mb-1">Foto del Animal (Cámara o Galería)</label>
+            <input 
+              type="file" 
+              id="petImageInput" 
+              accept="image/*" 
+              class="w-full bg-slate-900 border border-slate-700 text-xs text-slate-400 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white"
+            >
           </div>
 
           <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30">
@@ -215,26 +220,27 @@
 
   <!-- Lógica de JavaScript -->
   <script>
-    // Variables de Estado en Memoria
+    // Estado en Memoria
     let pets = [];
     let historyLogs = [];
     let mediaStream = null;
 
-    // Cargar datos guardados desde localStorage al iniciar
+    // Inicialización al cargar la ventana
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       loadFromLocalStorage();
       renderAll();
     });
 
+    // Cargar datos persistentes (Corregido con null check)
     function loadFromLocalStorage() {
       const savedPets = localStorage.getItem('petfeeder_pets');
       const savedHistory = localStorage.getItem('petfeeder_history');
 
-      if (savedPets) {
+      if (savedPets !== null) {
         pets = JSON.parse(savedPets);
       } else {
-        // Datos por defecto iniciales
+        // Solo la primera vez se inicializan datos por defecto
         pets = [
           { id: 1, name: 'Michi', type: 'Gato', targetGrams: 120, currentGrams: 80, photo: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150' },
           { id: 2, name: 'Firulais', type: 'Perro', targetGrams: 350, currentGrams: 200, photo: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150' }
@@ -242,7 +248,7 @@
         saveToLocalStorage();
       }
 
-      if (savedHistory) {
+      if (savedHistory !== null) {
         historyLogs = JSON.parse(savedHistory);
       } else {
         historyLogs = [
@@ -253,9 +259,15 @@
       }
     }
 
+    // Guardar en localStorage de forma segura con manejo de excepciones
     function saveToLocalStorage() {
-      localStorage.setItem('petfeeder_pets', JSON.stringify(pets));
-      localStorage.setItem('petfeeder_history', JSON.stringify(historyLogs));
+      try {
+        localStorage.setItem('petfeeder_pets', JSON.stringify(pets));
+        localStorage.setItem('petfeeder_history', JSON.stringify(historyLogs));
+      } catch (e) {
+        alert("Error de almacenamiento: La imagen seleccionada es demasiado grande.");
+        console.error("Quota Exceeded Error", e);
+      }
     }
 
     // Navegación entre Pestañas
@@ -277,7 +289,7 @@
       }
     }
 
-    // Manejo de Creación de Perfil de Mascota con Foto Local
+    // Manejo de Creación de Perfil de Mascota con Compresión de Imagen
     function handlePetSubmit(e) {
       e.preventDefault();
 
@@ -291,15 +303,48 @@
         : 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150';
 
       if (fileInput.files && fileInput.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const photoBase64 = e.target.result;
-          createPet(name, type, targetGrams, photoBase64);
-        };
-        reader.readAsDataURL(fileInput.files[0]);
+        compressAndResizeImage(fileInput.files[0], 300, 300, (compressedBase64) => {
+          createPet(name, type, targetGrams, compressedBase64);
+        });
       } else {
         createPet(name, type, targetGrams, defaultPhoto);
       }
+    }
+
+    // Función auxiliar para redimensionar y comprimir fotos pesadas
+    function compressAndResizeImage(file, maxWidth, maxHeight, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Exporta la imagen comprimida a JPEG con calidad 0.7 (70%)
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          callback(compressedDataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
     }
 
     function createPet(name, type, targetGrams, photo) {
@@ -329,7 +374,7 @@
       }
     }
 
-    // Renderizado en Pantalla
+    // Renderizado general
     function renderAll() {
       renderDashboard();
       renderPetsList();
@@ -400,6 +445,10 @@
 
     function renderCameraSelect() {
       const select = document.getElementById('selectPetToFeed');
+      if (pets.length === 0) {
+        select.innerHTML = `<option value="">No hay mascotas registradas</option>`;
+        return;
+      }
       select.innerHTML = pets.map(pet => `<option value="${pet.id}">${pet.name} (${pet.type})</option>`).join('');
     }
 
@@ -423,7 +472,7 @@
       `).join('');
     }
 
-    // Control de la Cámara Real
+    // Control de Cámara
     async function toggleCamera() {
       const video = document.getElementById('videoFeed');
       const placeholder = document.getElementById('cameraPlaceholder');
@@ -447,7 +496,6 @@
         btn.innerText = "Apagar Cámara";
         resultsCard.classList.remove('hidden');
 
-        // Simulación visual de detección sobre la cámara
         if (pets.length > 0) {
           bbox.classList.remove('hidden');
           bbox.style.top = '20%';
@@ -458,7 +506,7 @@
         }
 
       } catch (err) {
-        alert("No se pudo acceder a la cámara. Asegúrate de otorgar los permisos en el navegador.");
+        alert("No se pudo acceder a la cámara. Revisa los permisos del navegador.");
         console.error(err);
       }
     }
@@ -477,10 +525,15 @@
       document.getElementById('scanResultsCard').classList.add('hidden');
     }
 
-    // Guardar Alimento Consumido
+    // Guardar Ingesta
     function recordFeeding() {
       const petId = parseInt(document.getElementById('selectPetToFeed').value);
       const grams = parseInt(document.getElementById('inputGramsFed').value);
+
+      if (!petId) {
+        alert("Por favor registra una mascota primero.");
+        return;
+      }
 
       const pet = pets.find(p => p.id === petId);
       if (pet) {
