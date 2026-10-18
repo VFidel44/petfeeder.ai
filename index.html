@@ -6,24 +6,20 @@
   <title>PetFeeder AI - Control de Alimentación</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <!-- TensorFlow.js + MobileNet -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+
   <style>
     body {
       -webkit-tap-highlight-color: transparent;
       user-select: none;
-    }
-    .hide-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .hide-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
     }
   </style>
 </head>
@@ -33,16 +29,16 @@
   <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700/50 sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
     <div class="flex items-center space-x-3">
       <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-        <i data-lucide="scan-line" class="w-6 h-6"></i>
+        <i data-lucide="cpu" class="w-6 h-6"></i>
       </div>
       <div>
         <h1 class="font-bold text-lg leading-tight text-white">PetFeeder AI</h1>
         <p class="text-xs text-indigo-400 font-medium">Reconocimiento & Control</p>
       </div>
     </div>
-    <div id="statusBadge" class="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-2.5 py-1 rounded-full">
-      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-      <span>Guardado Local</span>
+    <div id="aiStatusBadge" class="flex items-center space-x-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs px-2.5 py-1 rounded-full">
+      <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+      <span id="aiStatusText">Cargando IA...</span>
     </div>
   </header>
 
@@ -54,7 +50,7 @@
       <div class="bg-gradient-to-br from-indigo-900/40 to-slate-800/60 border border-indigo-500/20 rounded-2xl p-4 shadow-xl">
         <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Resumen de hoy</h2>
         <div id="dashboardPetSummary" class="space-y-3">
-          <!-- Se llena dinámicamente -->
+          <!-- Dinámico -->
         </div>
       </div>
 
@@ -66,7 +62,7 @@
           </button>
         </h3>
         <div id="petsQuickList" class="grid grid-cols-2 gap-3">
-          <!-- Se llena dinámicamente -->
+          <!-- Dinámico -->
         </div>
       </div>
     </section>
@@ -76,27 +72,24 @@
       <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-4 shadow-xl">
         <div class="flex justify-between items-center">
           <h2 class="text-md font-bold text-white flex items-center gap-2">
-            <i data-lucide="camera" class="w-5 h-5 text-indigo-400"></i> Escáner AI en Vivo
+            <i data-lucide="camera" class="w-5 h-5 text-indigo-400"></i> Escáner IA en Vivo
           </h2>
           <span id="cameraStatus" class="text-xs text-slate-400">Cámara Inactiva</span>
         </div>
 
-        <div class="relative bg-slate-950 rounded-xl aspect-video overflow-hidden border border-slate-800 flex items-center justify-center group">
+        <div class="relative bg-slate-950 rounded-xl aspect-video overflow-hidden border border-slate-800 flex items-center justify-center">
           <video id="videoFeed" class="w-full h-full object-cover hidden" autoplay playsinline muted></video>
           
           <div id="cameraPlaceholder" class="text-center p-6 space-y-2">
             <i data-lucide="camera-off" class="w-10 h-10 text-slate-600 mx-auto"></i>
-            <p class="text-xs text-slate-400">Presiona el botón para iniciar la cámara y escanear a tu mascota comiendo.</p>
+            <p class="text-xs text-slate-400">Inicia la cámara para identificar a tus mascotas en tiempo real.</p>
           </div>
 
-          <!-- Bounding Box Simulado de IA -->
-          <div id="aiBoundingBox" class="hidden absolute border-2 border-emerald-400 bg-emerald-500/10 rounded-lg transition-all duration-300 flex flex-col justify-between p-2">
-            <div class="bg-emerald-500 text-slate-950 text-[10px] font-bold px-1.5 py-0.5 rounded w-max flex items-center gap-1">
-              <i data-lucide="check-circle-2" class="w-3 h-3"></i>
-              <span id="detectedPetName">Mascota</span> (<span id="detectedConfidence">98%</span>)
-            </div>
-            <div class="bg-slate-900/90 text-slate-200 text-[10px] p-1.5 rounded backdrop-blur border border-slate-700">
-              Comiendo: <span id="eatingSpeed" class="text-emerald-400 font-bold">~15g / min</span>
+          <!-- Bounding Box Simplicado: Solo Nombre y Alimento Ingerido -->
+          <div id="aiBoundingBox" class="hidden absolute border-2 border-emerald-400 bg-emerald-500/10 rounded-xl transition-all duration-300 flex flex-col justify-start p-3 shadow-xl inset-6 backdrop-blur-[2px]">
+            <div class="bg-slate-900/90 text-white p-2.5 rounded-lg border border-emerald-500/50 shadow-md">
+              <h4 id="detectedPetName" class="font-extrabold text-sm text-emerald-400">Mascota</h4>
+              <p class="text-xs text-slate-200 mt-0.5">Comida ingerida hoy: <span id="detectedPetGrams" class="font-bold text-white">0g</span></p>
             </div>
           </div>
         </div>
@@ -108,13 +101,13 @@
         </div>
       </div>
 
-      <!-- Registro Manual / Simulado de Ingesta -->
+      <!-- Card para Registrar Alimentación desde Cámara -->
       <div id="scanResultsCard" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
-          <i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i> Registrar Alimentación
+          <i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i> Registrar Alimentación Detectada
         </h3>
         <div class="space-y-2">
-          <label class="text-xs text-slate-400">Mascota detectada:</label>
+          <label class="text-xs text-slate-400">Mascota identificada:</label>
           <select id="selectPetToFeed" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
             <!-- Dinámico -->
           </select>
@@ -157,7 +150,6 @@
             </div>
           </div>
 
-          <!-- Selector de Imagen (Abre menú de Galería / Archivos / Cámara en Android) -->
           <div>
             <label class="text-xs text-slate-400 block mb-1">Foto del Animal (Cámara o Galería)</label>
             <input 
@@ -174,16 +166,16 @@
         </form>
       </div>
 
-      <!-- Lista de Perfiles Guardados -->
+      <!-- Perfiles Registrados -->
       <div class="space-y-3">
         <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider">Perfiles Registrados</h3>
         <div id="petsFullList" class="space-y-3">
-          <!-- Lista Dinámica -->
+          <!-- Dinámico -->
         </div>
       </div>
     </section>
 
-    <!-- SECCIÓN 4: HISTORIAL DE ALIMENTACIÓN -->
+    <!-- SECCIÓN 4: HISTORIAL LIMPIO -->
     <section id="sec-history" class="hidden space-y-4">
       <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3 shadow-xl">
         <h2 class="text-md font-bold text-white flex items-center gap-2">
@@ -196,6 +188,35 @@
     </section>
 
   </main>
+
+  <!-- MODAL FLOTANTE PARA ACTUALIZAR ALIMENTO MANUALMENTE EN CADA PERFIL -->
+  <div id="manualFeedModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-white text-md flex items-center gap-2">
+          <i data-lucide="edit-3" class="w-4 h-4 text-indigo-400"></i> Actualizar Alimento
+        </h3>
+        <button onclick="closeManualFeedModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <p id="modalPetName" class="text-xs text-slate-300">Añade o modifica los gramos ingeridos para esta mascota:</p>
+      
+      <div class="space-y-2">
+        <label class="text-xs text-slate-400 block">Gramos a agregar (+g):</label>
+        <input type="number" id="modalInputGrams" value="30" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="submitManualFeed()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2.5 rounded-xl transition">
+          + Agregar Gramos
+        </button>
+        <button onclick="resetPetGrams()" class="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs px-3 rounded-xl transition border border-rose-500/30">
+          Reiniciar a 0g
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Bottom Navigation -->
   <nav class="fixed bottom-0 left-0 right-0 bg-slate-800/90 backdrop-blur border-t border-slate-700/60 z-50">
@@ -219,21 +240,55 @@
     </div>
   </nav>
 
-  <!-- Lógica de JavaScript -->
+  <!-- LÓGICA DE JAVASCRIPT -->
   <script>
-    // Estado en Memoria
     let pets = [];
     let historyLogs = [];
     let mediaStream = null;
+    let aiModel = null;
+    let classificationInterval = null;
+    let selectedPetForManualFeed = null;
 
-    // Inicialización al cargar la ventana
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
       loadFromLocalStorage();
       renderAll();
+      await initAIModel();
     });
 
-    // Cargar datos persistentes (Corregido con null check)
+    async function initAIModel() {
+      try {
+        aiModel = await mobilenet.load({ version: 2, alpha: 1.0 });
+        const badge = document.getElementById('aiStatusBadge');
+        badge.className = "flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-2.5 py-1 rounded-full";
+        document.getElementById('aiStatusText').innerText = "IA Lista";
+        extractPetFeatures();
+      } catch (err) {
+        console.error("Error al cargar TensorFlow.js:", err);
+        document.getElementById('aiStatusText').innerText = "IA Error";
+      }
+    }
+
+    async function extractPetFeatures() {
+      if (!aiModel) return;
+      for (let pet of pets) {
+        if (pet.photo && !pet.featureVector) {
+          try {
+            const imgEl = new Image();
+            imgEl.crossOrigin = "anonymous";
+            imgEl.src = pet.photo;
+            await imgEl.decode();
+            const activation = aiModel.infer(imgEl, 'conv_preds');
+            pet.featureVector = await activation.data();
+            activation.dispose();
+          } catch (e) {
+            console.warn(`No se pudo procesar imagen de ${pet.name}`, e);
+          }
+        }
+      }
+      saveToLocalStorage();
+    }
+
     function loadFromLocalStorage() {
       const savedPets = localStorage.getItem('petfeeder_pets');
       const savedHistory = localStorage.getItem('petfeeder_history');
@@ -241,7 +296,6 @@
       if (savedPets !== null) {
         pets = JSON.parse(savedPets);
       } else {
-        // Solo la primera vez se inicializan datos por defecto
         pets = [
           { id: 1, name: 'Michi', type: 'Gato', targetGrams: 120, currentGrams: 80, photo: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150' },
           { id: 2, name: 'Firulais', type: 'Perro', targetGrams: 350, currentGrams: 200, photo: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150' }
@@ -249,29 +303,24 @@
         saveToLocalStorage();
       }
 
+      // HISTORIAL COMPLETAMENTE LIMPIO DE INICIO (Sin datos por defecto)
       if (savedHistory !== null) {
         historyLogs = JSON.parse(savedHistory);
       } else {
-        historyLogs = [
-          { id: 1, petName: 'Michi', grams: 40, time: 'Hoy, 08:30 AM' },
-          { id: 2, petName: 'Firulais', grams: 100, time: 'Hoy, 09:15 AM' }
-        ];
+        historyLogs = []; // Vacío por defecto
         saveToLocalStorage();
       }
     }
 
-    // Guardar en localStorage de forma segura con manejo de excepciones
     function saveToLocalStorage() {
       try {
         localStorage.setItem('petfeeder_pets', JSON.stringify(pets));
         localStorage.setItem('petfeeder_history', JSON.stringify(historyLogs));
       } catch (e) {
-        alert("Error de almacenamiento: La imagen seleccionada es demasiado grande.");
-        console.error("Quota Exceeded Error", e);
+        console.error("Quota Exceeded", e);
       }
     }
 
-    // Navegación entre Pestañas
     function switchTab(tab) {
       ['dashboard', 'camera', 'pets', 'history'].forEach(t => {
         document.getElementById(`sec-${t}`).classList.add('hidden');
@@ -290,10 +339,8 @@
       }
     }
 
-    // Manejo de Creación de Perfil de Mascota con Compresión de Imagen
     function handlePetSubmit(e) {
       e.preventDefault();
-
       const name = document.getElementById('petName').value.trim();
       const type = document.getElementById('petType').value;
       const targetGrams = parseInt(document.getElementById('petTargetGrams').value);
@@ -312,7 +359,6 @@
       }
     }
 
-    // Función auxiliar para redimensionar y comprimir fotos pesadas
     function compressAndResizeImage(file, maxWidth, maxHeight, callback) {
       const reader = new FileReader();
       reader.onload = function(event) {
@@ -338,8 +384,6 @@
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-
-          // Exporta la imagen comprimida a JPEG con calidad 0.7 (70%)
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
           callback(compressedDataUrl);
         };
@@ -348,7 +392,7 @@
       reader.readAsDataURL(file);
     }
 
-    function createPet(name, type, targetGrams, photo) {
+    async function createPet(name, type, targetGrams, photo) {
       const newPet = {
         id: Date.now(),
         name,
@@ -360,6 +404,7 @@
 
       pets.push(newPet);
       saveToLocalStorage();
+      await extractPetFeatures();
       renderAll();
 
       document.getElementById('petForm').reset();
@@ -375,7 +420,56 @@
       }
     }
 
-    // Renderizado general
+    // MANEJO DEL MODAL DE ACTUALIZACIÓN MANUAL EN EL PERFIL
+    function openManualFeedModal(petId) {
+      const pet = pets.find(p => p.id === petId);
+      if (!pet) return;
+      selectedPetForManualFeed = pet;
+      document.getElementById('modalPetName').innerText = `Actualizar consumo de ${pet.name} (Actual: ${pet.currentGrams}g):`;
+      document.getElementById('manualFeedModal').classList.remove('hidden');
+    }
+
+    function closeManualFeedModal() {
+      document.getElementById('manualFeedModal').classList.add('hidden');
+      selectedPetForManualFeed = null;
+    }
+
+    function submitManualFeed() {
+      if (!selectedPetForManualFeed) return;
+      const addedGrams = parseInt(document.getElementById('modalInputGrams').value);
+      if (isNaN(addedGrams) || addedGrams <= 0) {
+        alert("Ingresa una cantidad válida de gramos.");
+        return;
+      }
+
+      selectedPetForManualFeed.currentGrams += addedGrams;
+
+      const now = new Date();
+      const timeStr = `Hoy, ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      // Registra en el historial el cambio manual
+      historyLogs.push({
+        id: Date.now(),
+        petName: selectedPetForManualFeed.name,
+        grams: addedGrams,
+        time: timeStr
+      });
+
+      saveToLocalStorage();
+      renderAll();
+      closeManualFeedModal();
+    }
+
+    function resetPetGrams() {
+      if (!selectedPetForManualFeed) return;
+      if (confirm(`¿Reiniciar a 0g el consumo de hoy de ${selectedPetForManualFeed.name}?`)) {
+        selectedPetForManualFeed.currentGrams = 0;
+        saveToLocalStorage();
+        renderAll();
+        closeManualFeedModal();
+      }
+    }
+
     function renderAll() {
       renderDashboard();
       renderPetsList();
@@ -437,9 +531,14 @@
               <p class="text-xs text-indigo-400 font-medium">Consumido hoy: ${pet.currentGrams}g</p>
             </div>
           </div>
-          <button onclick="deletePet(${pet.id})" class="text-rose-400 hover:text-rose-300 p-2">
-            <i data-lucide="trash-2" class="w-5 h-5"></i>
-          </button>
+          <div class="flex items-center space-x-1">
+            <button onclick="openManualFeedModal(${pet.id})" title="Modificar alimento" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 p-2 rounded-lg transition border border-indigo-500/30">
+              <i data-lucide="utensils" class="w-4 h-4"></i>
+            </button>
+            <button onclick="deletePet(${pet.id})" title="Eliminar perfil" class="text-rose-400 hover:text-rose-300 p-2">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
         </div>
       `).join('');
     }
@@ -456,7 +555,7 @@
     function renderHistory() {
       const container = document.getElementById('historyLogsList');
       if (historyLogs.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400">Sin historial registrado.</p>`;
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay ingestas registradas aún.<br>Aparecerán aquí las que ingreses por cámara o manualmente.</p>`;
         return;
       }
 
@@ -473,14 +572,13 @@
       `).join('');
     }
 
-    // Control de Cámara
+    // CONTROL DE CÁMARA
     async function toggleCamera() {
       const video = document.getElementById('videoFeed');
       const placeholder = document.getElementById('cameraPlaceholder');
       const status = document.getElementById('cameraStatus');
       const btn = document.getElementById('btnToggleCamera');
       const resultsCard = document.getElementById('scanResultsCard');
-      const bbox = document.getElementById('aiBoundingBox');
 
       if (mediaStream) {
         stopCamera();
@@ -492,27 +590,26 @@
         video.srcObject = mediaStream;
         video.classList.remove('hidden');
         placeholder.classList.add('hidden');
-        status.innerText = "Escaneando en vivo...";
+        status.innerText = "Escaneando...";
         status.classList.add("text-emerald-400");
         btn.innerText = "Apagar Cámara";
         resultsCard.classList.remove('hidden');
 
-        if (pets.length > 0) {
-          bbox.classList.remove('hidden');
-          bbox.style.top = '20%';
-          bbox.style.left = '20%';
-          bbox.style.width = '60%';
-          bbox.style.height = '60%';
-          document.getElementById('detectedPetName').innerText = pets[0].name;
-        }
+        classificationInterval = setInterval(() => {
+          classifyFrameFromCamera();
+        }, 400);
 
       } catch (err) {
-        alert("No se pudo acceder a la cámara. Revisa los permisos del navegador.");
+        alert("No se pudo acceder a la cámara. Revisa los permisos.");
         console.error(err);
       }
     }
 
     function stopCamera() {
+      if (classificationInterval) {
+        clearInterval(classificationInterval);
+        classificationInterval = null;
+      }
       if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
         mediaStream = null;
@@ -526,13 +623,62 @@
       document.getElementById('scanResultsCard').classList.add('hidden');
     }
 
-    // Guardar Ingesta
+    async function classifyFrameFromCamera() {
+      if (!aiModel || !mediaStream || pets.length === 0) return;
+
+      const video = document.getElementById('videoFeed');
+      const bbox = document.getElementById('aiBoundingBox');
+
+      try {
+        const activation = aiModel.infer(video, 'conv_preds');
+        const frameVector = await activation.data();
+        activation.dispose();
+
+        let bestMatch = null;
+        let maxSimilarity = -1;
+
+        for (let pet of pets) {
+          if (pet.featureVector) {
+            const similarity = cosineSimilarity(frameVector, pet.featureVector);
+            if (similarity > maxSimilarity) {
+              maxSimilarity = similarity;
+              bestMatch = pet;
+            }
+          }
+        }
+
+        // Muestra únicamente el Nombre y los Gramos consumidos hoy
+        if (bestMatch && maxSimilarity > 0.70) {
+          bbox.classList.remove('hidden');
+          document.getElementById('detectedPetName').innerText = bestMatch.name;
+          document.getElementById('detectedPetGrams').innerText = `${bestMatch.currentGrams}g`;
+          document.getElementById('selectPetToFeed').value = bestMatch.id;
+        } else {
+          bbox.classList.add('hidden');
+        }
+
+      } catch (err) {
+        console.error("Error en cuadro de video:", err);
+      }
+    }
+
+    function cosineSimilarity(vecA, vecB) {
+      let dotProduct = 0.0, normA = 0.0, normB = 0.0;
+      for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+      }
+      if (normA === 0 || normB === 0) return 0;
+      return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
     function recordFeeding() {
       const petId = parseInt(document.getElementById('selectPetToFeed').value);
       const grams = parseInt(document.getElementById('inputGramsFed').value);
 
       if (!petId) {
-        alert("Por favor registra una mascota primero.");
+        alert("No hay ninguna mascota seleccionada o detectada.");
         return;
       }
 
@@ -557,7 +703,7 @@
     }
   </script>
 
-  <!-- Service Worker para PWA -->
+  <!-- Service Worker PWA -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
