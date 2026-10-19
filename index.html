@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>PetFeeder AI - Control de Alimentación</title>
+  <title>PetFeeder AI - Teachable Machine</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
   
@@ -12,9 +12,9 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- TensorFlow.js + MobileNet -->
+  <!-- TensorFlow.js + Teachable Machine Library -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 
   <style>
     body {
@@ -33,12 +33,12 @@
       </div>
       <div>
         <h1 class="font-bold text-lg leading-tight text-white">PetFeeder AI</h1>
-        <p class="text-xs text-indigo-400 font-medium">Reconocimiento & Control</p>
+        <p class="text-xs text-indigo-400 font-medium">Modelo Teachable Machine</p>
       </div>
     </div>
     <div id="aiStatusBadge" class="flex items-center space-x-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs px-2.5 py-1 rounded-full">
       <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-      <span id="aiStatusText">Cargando IA...</span>
+      <span id="aiStatusText">Cargando Modelo...</span>
     </div>
   </header>
 
@@ -67,12 +67,12 @@
       </div>
     </section>
 
-    <!-- SECCIÓN 2: CÁMARA AI -->
+    <!-- SECCIÓN 2: CÁMARA AI CON TEACHABLE MACHINE -->
     <section id="sec-camera" class="hidden space-y-4">
       <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-4 shadow-xl">
         <div class="flex justify-between items-center">
           <h2 class="text-md font-bold text-white flex items-center gap-2">
-            <i data-lucide="camera" class="w-5 h-5 text-indigo-400"></i> Escáner IA en Vivo
+            <i data-lucide="camera" class="w-5 h-5 text-indigo-400"></i> Reconocimiento en Vivo
           </h2>
           <span id="cameraStatus" class="text-xs text-slate-400">Cámara Inactiva</span>
         </div>
@@ -82,10 +82,10 @@
           
           <div id="cameraPlaceholder" class="text-center p-6 space-y-2">
             <i data-lucide="camera-off" class="w-10 h-10 text-slate-600 mx-auto"></i>
-            <p class="text-xs text-slate-400">Inicia la cámara para identificar a tus mascotas en tiempo real.</p>
+            <p class="text-xs text-slate-400">Inicia la cámara para clasificar con tu modelo de Teachable Machine.</p>
           </div>
 
-          <!-- Bounding Box: Solo aparece si la IA detecta a la mascota -->
+          <!-- Solo aparece si reconoce a uno de tus gatos -->
           <div id="aiBoundingBox" class="hidden absolute border-2 border-emerald-400 bg-emerald-500/10 rounded-xl transition-all duration-300 flex flex-col justify-start p-3 shadow-xl inset-6 backdrop-blur-[2px]">
             <div class="bg-slate-900/90 text-white p-2.5 rounded-lg border border-emerald-500/50 shadow-md">
               <h4 id="detectedPetName" class="font-extrabold text-sm text-emerald-400">Mascota</h4>
@@ -101,10 +101,10 @@
         </div>
       </div>
 
-      <!-- Card para Registrar Alimentación (Oculta hasta que haya detección) -->
+      <!-- Card para Registrar Alimentación Detectada -->
       <div id="scanResultsCard" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
-          <i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i> Registrar Alimentación Detectada
+          <i data-lucide="utensils" class="w-4 h-4 text-emerald-400"></i> Registrar Alimentación
         </h3>
         <div class="space-y-2">
           <label class="text-xs text-slate-400">Mascota identificada:</label>
@@ -122,8 +122,22 @@
       </div>
     </section>
 
-    <!-- SECCIÓN 3: GESTIÓN DE MASCOTAS -->
+    <!-- SECCIÓN 3: GESTIÓN DE MASCOTAS Y CONFIGURACIÓN MODELO -->
     <section id="sec-pets" class="hidden space-y-4">
+      <!-- Configuración del Modelo de Teachable Machine -->
+      <div class="bg-slate-800 border border-indigo-500/30 rounded-2xl p-4 space-y-3 shadow-xl">
+        <h2 class="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="link" class="w-4 h-4"></i> Enlace Teachable Machine
+        </h2>
+        <div>
+          <label class="text-[11px] text-slate-400 block mb-1">Pega aquí la URL de tu modelo exportado:</label>
+          <input type="text" id="tmModelUrl" placeholder="https://teachablemachine.withgoogle.com/models/..." class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500">
+        </div>
+        <button onclick="saveAndLoadTMModel()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs py-2 rounded-xl transition">
+          Cargar Modelo Personalizado
+        </button>
+      </div>
+
       <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-4 shadow-xl">
         <h2 class="text-md font-bold text-white flex items-center gap-2">
           <i data-lucide="dog" class="w-5 h-5 text-indigo-400"></i> Registrar Nueva Mascota
@@ -131,27 +145,27 @@
         
         <form id="petForm" onsubmit="handlePetSubmit(event)" class="space-y-3">
           <div>
-            <label class="text-xs text-slate-400 block mb-1">Nombre de la Mascota</label>
-            <input type="text" id="petName" required placeholder="Ej. Firulais, Michi" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+            <label class="text-xs text-slate-400 block mb-1">Nombre (Debe ser IDÉNTICO a la clase de Teachable Machine)</label>
+            <input type="text" id="petName" required placeholder="Ej. Michi, Chispita" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-xs text-slate-400 block mb-1">Tipo de Animal</label>
               <select id="petType" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
-                <option value="Perro">Perro 🐶</option>
                 <option value="Gato">Gato 🐱</option>
+                <option value="Perro">Perro 🐶</option>
                 <option value="Otro">Otro 🐾</option>
               </select>
             </div>
             <div>
               <label class="text-xs text-slate-400 block mb-1">Ración Diaria (g)</label>
-              <input type="number" id="petTargetGrams" required placeholder="Ej. 200" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+              <input type="number" id="petTargetGrams" required placeholder="Ej. 120" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
             </div>
           </div>
 
           <div>
-            <label class="text-xs text-slate-400 block mb-1">Foto del Animal (Cámara o Galería)</label>
+            <label class="text-xs text-slate-400 block mb-1">Foto para el perfil (Opcional)</label>
             <input 
               type="file" 
               id="petImageInput" 
@@ -175,7 +189,7 @@
       </div>
     </section>
 
-    <!-- SECCIÓN 4: HISTORIAL LIMPIO -->
+    <!-- SECCIÓN 4: HISTORIAL -->
     <section id="sec-history" class="hidden space-y-4">
       <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3 shadow-xl">
         <h2 class="text-md font-bold text-white flex items-center gap-2">
@@ -189,7 +203,7 @@
 
   </main>
 
-  <!-- MODAL FLOTANTE PARA ACTUALIZAR ALIMENTO MANUALMENTE -->
+  <!-- MODAL MANUAL -->
   <div id="manualFeedModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
@@ -240,53 +254,103 @@
     </div>
   </nav>
 
-  <!-- LÓGICA DE JAVASCRIPT -->
+  <!-- LÓGICA CON TEACHABLE MACHINE Y REINICIO DIARIO AUTOMÁTICO -->
   <script>
     let pets = [];
     let historyLogs = [];
     let mediaStream = null;
-    let aiModel = null;
+    let tmModel = null;
     let classificationInterval = null;
+    let midnightTimer = null;
     let selectedPetForManualFeed = null;
+    let tmModelUrl = localStorage.getItem('petfeeder_tm_url') || '';
 
     window.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
       loadFromLocalStorage();
+      checkDailyReset(); // Verificar si cambió el día al abrir la app
+      scheduleMidnightReset(); // Programar reinicio a las 00:00 exactas
       renderAll();
-      await initAIModel();
+      
+      if (tmModelUrl) {
+        document.getElementById('tmModelUrl').value = tmModelUrl;
+        await loadTMModel(tmModelUrl);
+      } else {
+        document.getElementById('aiStatusText').innerText = "Sin Modelo Configurado";
+      }
     });
 
-    async function initAIModel() {
-      try {
-        aiModel = await mobilenet.load({ version: 2, alpha: 1.0 });
-        const badge = document.getElementById('aiStatusBadge');
-        badge.className = "flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-2.5 py-1 rounded-full";
-        document.getElementById('aiStatusText').innerText = "IA Lista";
-        extractPetFeatures();
-      } catch (err) {
-        console.error("Error al cargar TensorFlow.js:", err);
-        document.getElementById('aiStatusText').innerText = "IA Error";
+    // Detectar cuando el usuario vuelve a abrir/enfocar la app desde segundo plano
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkDailyReset();
+      }
+    });
+
+    // LÓGICA DE REINICIO AUTOMÁTICO A LAS 00:00
+    function checkDailyReset() {
+      const todayStr = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+      const lastSavedDate = localStorage.getItem('petfeeder_last_date');
+
+      if (!lastSavedDate) {
+        localStorage.setItem('petfeeder_last_date', todayStr);
+      } else if (lastSavedDate !== todayStr) {
+        // Es un día nuevo -> Reiniciar ingesta de todas las mascotas a 0
+        pets.forEach(pet => {
+          pet.currentGrams = 0;
+        });
+        localStorage.setItem('petfeeder_last_date', todayStr);
+        saveToLocalStorage();
+        renderAll();
+        console.log("Reinicio diario completado: Se restablecieron las ingestas a 0g.");
       }
     }
 
-    async function extractPetFeatures() {
-      if (!aiModel) return;
-      for (let pet of pets) {
-        if (pet.photo && !pet.featureVector) {
-          try {
-            const imgEl = new Image();
-            imgEl.crossOrigin = "anonymous";
-            imgEl.src = pet.photo;
-            await imgEl.decode();
-            const activation = aiModel.infer(imgEl, 'conv_preds');
-            pet.featureVector = await activation.data();
-            activation.dispose();
-          } catch (e) {
-            console.warn(`No se pudo procesar imagen de ${pet.name}`, e);
-          }
-        }
+    function scheduleMidnightReset() {
+      if (midnightTimer) clearTimeout(midnightTimer);
+
+      const now = new Date();
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0); // Establecer las 00:00:00 del día siguiente
+
+      const timeUntilMidnight = midnight.getTime() - now.getTime();
+
+      midnightTimer = setTimeout(() => {
+        checkDailyReset();
+        scheduleMidnightReset(); // Re-programar para la siguiente medianoche
+      }, timeUntilMidnight);
+    }
+
+    async function saveAndLoadTMModel() {
+      const urlInput = document.getElementById('tmModelUrl').value.trim();
+      if (!urlInput) {
+        alert("Ingresa un enlace válido de Teachable Machine.");
+        return;
       }
-      saveToLocalStorage();
+      
+      let formattedUrl = urlInput;
+      if (!formattedUrl.endsWith('/')) formattedUrl += '/';
+
+      localStorage.setItem('petfeeder_tm_url', formattedUrl);
+      tmModelUrl = formattedUrl;
+      await loadTMModel(formattedUrl);
+    }
+
+    async function loadTMModel(url) {
+      try {
+        document.getElementById('aiStatusText').innerText = "Cargando Teachable Machine...";
+        const modelURL = url + "model.json";
+        const metadataURL = url + "metadata.json";
+
+        tmModel = await tmImage.load(modelURL, metadataURL);
+        
+        const badge = document.getElementById('aiStatusBadge');
+        badge.className = "flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-2.5 py-1 rounded-full";
+        document.getElementById('aiStatusText').innerText = "IA Personalizada Lista";
+      } catch (err) {
+        console.error("Error al cargar Teachable Machine:", err);
+        document.getElementById('aiStatusText').innerText = "Error Modelo URL";
+      }
     }
 
     function loadFromLocalStorage() {
@@ -297,8 +361,7 @@
         pets = JSON.parse(savedPets);
       } else {
         pets = [
-          { id: 1, name: 'Michi', type: 'Gato', targetGrams: 120, currentGrams: 80, photo: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150' },
-          { id: 2, name: 'Firulais', type: 'Perro', targetGrams: 350, currentGrams: 200, photo: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=150' }
+          { id: 1, name: 'Michi', type: 'Gato', targetGrams: 120, currentGrams: 80, photo: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=150' }
         ];
         saveToLocalStorage();
       }
@@ -391,7 +454,7 @@
       reader.readAsDataURL(file);
     }
 
-    async function createPet(name, type, targetGrams, photo) {
+    function createPet(name, type, targetGrams, photo) {
       const newPet = {
         id: Date.now(),
         name,
@@ -403,7 +466,6 @@
 
       pets.push(newPet);
       saveToLocalStorage();
-      await extractPetFeatures();
       renderAll();
 
       document.getElementById('petForm').reset();
@@ -552,7 +614,7 @@
     function renderHistory() {
       const container = document.getElementById('historyLogsList');
       if (historyLogs.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay ingestas registradas aún.<br>Aparecerán aquí las que ingreses por cámara o manualmente.</p>`;
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No hay ingestas registradas aún.</p>`;
         return;
       }
 
@@ -578,6 +640,11 @@
       const resultsCard = document.getElementById('scanResultsCard');
       const bbox = document.getElementById('aiBoundingBox');
 
+      if (!tmModel) {
+        alert("Por favor carga primero la URL de tu modelo de Teachable Machine en la pestaña 'Mascotas'.");
+        return;
+      }
+
       if (mediaStream) {
         stopCamera();
         return;
@@ -588,17 +655,16 @@
         video.srcObject = mediaStream;
         video.classList.remove('hidden');
         placeholder.classList.add('hidden');
-        status.innerText = "Escaneando...";
+        status.innerText = "Teachable Machine Escaneando...";
         status.classList.add("text-emerald-400");
         btn.innerText = "Apagar Cámara";
-        
-        // Mantener ocultos el cuadro y la tarjeta de registro al encender (hasta que la IA detecte algo)
+
         bbox.classList.add('hidden');
         resultsCard.classList.add('hidden');
 
         classificationInterval = setInterval(() => {
-          classifyFrameFromCamera();
-        }, 400);
+          classifyFrameWithTeachableMachine();
+        }, 300);
 
       } catch (err) {
         alert("No se pudo acceder a la cámara. Revisa los permisos.");
@@ -624,58 +690,46 @@
       document.getElementById('scanResultsCard').classList.add('hidden');
     }
 
-    async function classifyFrameFromCamera() {
-      if (!aiModel || !mediaStream || pets.length === 0) return;
+    // CLASIFICACIÓN CON EL MODELO ENTRENADO
+    async function classifyFrameWithTeachableMachine() {
+      if (!tmModel || !mediaStream) return;
 
       const video = document.getElementById('videoFeed');
       const bbox = document.getElementById('aiBoundingBox');
       const resultsCard = document.getElementById('scanResultsCard');
 
       try {
-        const activation = aiModel.infer(video, 'conv_preds');
-        const frameVector = await activation.data();
-        activation.dispose();
+        const predictions = await tmModel.predict(video);
+        
+        let highestPrediction = predictions.reduce((prev, current) => 
+          (prev.probability > current.probability) ? prev : current
+        );
 
-        let bestMatch = null;
-        let maxSimilarity = -1;
+        const className = highestPrediction.className.trim();
+        const probability = highestPrediction.probability;
 
-        for (let pet of pets) {
-          if (pet.featureVector) {
-            const similarity = cosineSimilarity(frameVector, pet.featureVector);
-            if (similarity > maxSimilarity) {
-              maxSimilarity = similarity;
-              bestMatch = pet;
-            }
-          }
-        }
+        if (probability > 0.80 && className.toLowerCase() !== 'fondo' && className.toLowerCase() !== 'desconocido') {
+          const matchedPet = pets.find(p => p.name.toLowerCase() === className.toLowerCase());
 
-        // Si la IA reconoce a la mascota (similitud > 70%), muestra la UI de identificación y registro
-        if (bestMatch && maxSimilarity > 0.70) {
           bbox.classList.remove('hidden');
           resultsCard.classList.remove('hidden');
-          document.getElementById('detectedPetName').innerText = bestMatch.name;
-          document.getElementById('detectedPetGrams').innerText = `${bestMatch.currentGrams}g`;
-          document.getElementById('selectPetToFeed').value = bestMatch.id;
+          
+          document.getElementById('detectedPetName').innerText = className;
+          
+          if (matchedPet) {
+            document.getElementById('detectedPetGrams').innerText = `${matchedPet.currentGrams}g`;
+            document.getElementById('selectPetToFeed').value = matchedPet.id;
+          } else {
+            document.getElementById('detectedPetGrams').innerText = `No registrada en la app`;
+          }
         } else {
-          // Si no hay mascota en la cámara, MANTIENE TODO OCULTO (Interfaz limpia)
           bbox.classList.add('hidden');
           resultsCard.classList.add('hidden');
         }
 
       } catch (err) {
-        console.error("Error en cuadro de video:", err);
+        console.error("Error clasificando frame:", err);
       }
-    }
-
-    function cosineSimilarity(vecA, vecB) {
-      let dotProduct = 0.0, normA = 0.0, normB = 0.0;
-      for (let i = 0; i < vecA.length; i++) {
-        dotProduct += vecA[i] * vecB[i];
-        normA += vecA[i] * vecA[i];
-        normB += vecB[i] * vecB[i];
-      }
-      if (normA === 0 || normB === 0) return 0;
-      return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
     function recordFeeding() {
